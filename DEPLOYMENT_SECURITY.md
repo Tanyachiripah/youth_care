@@ -13,18 +13,16 @@ This document specifies the security controls, authentication mechanisms, networ
 
 ---
 
-## 2. Network Access Configuration & IP Restrictions
+## 2. Network Access Configuration & Risk Assessment
 
 - **Current Atlas Access Rule:** `0.0.0.0/0` (Allow access from anywhere).
-- **Security Assessment:**
-  - On Render Free Web Services, outgoing traffic is routed through shared egress proxies.
-  - Render publishes shared region-specific outbound CIDR blocks in the service dashboard (**Connect** -> **Outbound**).
-- **Target Restricted Configuration:**
-  1. Inspect the assigned Render region (e.g. Frankfurt / `fra-1`).
-  2. Add Render's exact regional outbound IP/CIDR ranges to the Atlas Network Access list.
-  3. Verify connection health via `/api/health`.
-  4. Delete the broad `0.0.0.0/0` rule.
-- **Risk Mitigation:** Even while IP restriction is broad, connection requires valid database credentials, SCRAM-SHA authentication, and TLS encryption.
+- **Explicit Deployment Mandate:** Per project requirements, the existing `0.0.0.0/0` network access rule in MongoDB Atlas must remain **unchanged**. It must not be deleted, replaced, or modified, and no IP restriction is to be enforced at this time.
+- **Risk Assessment:** Unrestricted network access (`0.0.0.0/0`) exposes the database port to the public internet and is **not secure** by production standards. It is accepted strictly as an intentional temporary operational trade-off to ensure immediate, uninterrupted connectivity with Render's dynamic free-tier egress proxies without requiring paid static egress IPs.
+- **Compensating Security Controls:**
+  - Database access is strictly authenticated via SCRAM-SHA-256 with strong credentials.
+  - Connection strings require TLS wire encryption.
+  - Privileges are strictly scoped to `readWrite` on the `youthcare` database only.
+  - Administrative accounts are protected and not configured in runtime environments.
 
 ---
 

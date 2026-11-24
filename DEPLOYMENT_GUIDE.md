@@ -49,8 +49,8 @@ Deployment must proceed in this precise order:
    Ensure all changes and deployment configurations (`render.yaml`, `vercel.json`) are committed to `main`.
 2. **Step 2: Deploy Backend to Render**
    Create the Web Service using the Free plan, configure the environment variables, and verify `/api/health`.
-3. **Step 3: Restrict MongoDB Atlas Network Access**
-   Retrieve the assigned Render outbound IP/CIDR ranges and add them to Atlas Network Access, then remove `0.0.0.0/0`.
+3. **Step 3: MongoDB Atlas Network Access Note**
+   Leave the existing `0.0.0.0/0` network rule unchanged per deployment guidelines to allow uninterrupted dynamic egress from Render free instances.
 4. **Step 4: Deploy Frontend to Vercel**
    Import the repository, set `RENDER_API_URL` to the live Render backend URL, and deploy.
 5. **Step 5: Configure Render CORS / CLIENT_URL**

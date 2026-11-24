@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1 | Repository & Hygiene | VERIFIED | Clean working tree prepared, tests passing (17/17), production builds passing, 0 npm vulnerabilities. |
 | 2 | MongoDB Atlas User | VERIFIED (PRIOR) | Database user `readWrite@youthcare` configured with SCRAM authentication and scoped to `readWrite` on `youthcare`. `atlasAdmin` account untouched. |
-| 3 | MongoDB Atlas Network | PENDING USER ACTION | Broad `0.0.0.0/0` rule active; awaiting Render Web Service creation to restrict to exact outbound CIDRs. |
+| 3 | MongoDB Atlas Network | COMPLETED (ACCEPTED RISK) | Network access rule `0.0.0.0/0` intentionally retained unchanged per deployment instruction to permit free Render dynamic egress. |
 | 4 | Render Configuration | COMPLETED | `render.yaml` created explicitly selecting `plan: free` ($0/mo), Node runtime, root directory, build and start commands, and `/api/health`. |
 | 5 | Render Web Service | PENDING USER ACTION | Service creation from repository on Render Free tier; requires manual entry of `MONGODB_URI` secret. |
 | 6 | Vercel Configuration | COMPLETED | `vercel.json` (root and `client/vercel.json`) configured with API proxy rewrite (`/api/*` -> `${RENDER_API_URL}/api/$1`) and SPA fallback. |

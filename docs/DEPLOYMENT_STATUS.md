@@ -14,7 +14,7 @@
 
 - **Render:** Blueprint file `render.yaml` created explicitly selecting the Free plan ($0/mo), Node runtime, build/start commands, and `/api/health`. Ready to be activated on Render.
 - **Vercel:** `vercel.json` configured with external rewrite proxy (`/api/*` -> `${RENDER_API_URL}/api/$1`) and SPA fallback. Ready to be imported and deployed on Vercel Hobby ($0/mo).
-- **MongoDB Atlas:** Application user `readWrite@youthcare` configured with SCRAM authentication and `readWrite` access restricted to the `youthcare` database. Existing `atlasAdmin` user preserved. Broad `0.0.0.0/0` rule remains active pending deployment of the Render service, after which exact Render outbound CIDRs will replace it.
+- **MongoDB Atlas:** Application user `readWrite@youthcare` configured with SCRAM authentication and `readWrite` access restricted to the `youthcare` database. Existing `atlasAdmin` user preserved. The `0.0.0.0/0` network rule intentionally remains unchanged per deployment instructions as an accepted temporary risk for dynamic Render free-tier egress.
 
 ## 3. Deployment Artifacts Created
 
