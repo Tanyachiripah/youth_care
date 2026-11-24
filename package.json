@@ -2,6 +2,9 @@
   "name": "youthcare",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "client",
     "server"
@@ -9,6 +12,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev -w client\" \"npm run dev -w server\"",
     "build": "npm run build -w client && npm run build -w server",
+    "test": "npm run test -w server && npm exec --workspace server -- tsx --test ../client/src/api-url.test.ts ../client/src/api-errors.test.ts",
     "seed": "npm run seed -w server",
     "start": "npm run start -w server"
   },

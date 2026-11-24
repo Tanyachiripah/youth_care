@@ -1,10 +1,11 @@
 # API Contract
 
-All endpoints are prefixed with `/api`. JSON is used for request and response bodies. Session cookies authenticate protected routes.
+All endpoints are prefixed with `/api`. JSON is used for request and response bodies. Session cookies authenticate protected routes. All POST, PUT, PATCH, and DELETE requests require an exact trusted `Origin` and an `X-CSRF-Token` obtained from `GET /csrf-token`.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/health` | No | Health check |
+| GET | `/csrf-token` | No | Create or retrieve the current session's CSRF token |
 | POST | `/auth/register` | No | Create user |
 | POST | `/auth/login` | No | Start session |
 | POST | `/auth/logout` | Yes | End session |
@@ -22,4 +23,4 @@ All endpoints are prefixed with `/api`. JSON is used for request and response bo
 | POST | `/admin/resources` | Admin | Create resource |
 | POST | `/admin/opportunities` | Admin | Create opportunity |
 
-Errors use `{ "error": "Readable explanation" }`. Successful auth returns a minimal user object, never a password hash.
+Errors use `{ "error": { "code": "ERROR_CODE", "message": "Readable explanation", "requestId": "..." } }`. Successful registration and login return a minimal user object and a rotated CSRF token, never a password hash.

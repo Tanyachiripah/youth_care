@@ -8,7 +8,7 @@ The repository is an npm-workspaces application:
 - `server/`: Node.js, Express, TypeScript, Mongoose, and REST endpoints.
 - `docs/`: requirements, operational guidance, and design notes.
 
-The browser calls `/api` through Axios. In development, Vite and Express run separately; in production, Express serves the built client and API from one origin.
+The browser calls `/api` through Axios in development using the Vite proxy. In production, Vercel hosts the client and proxies `/api/*` to the Render Express API using the request-time `RENDER_API_URL` setting; the browser remains on the Vercel origin.
 
 ## Server startup and environment
 
@@ -30,4 +30,6 @@ The AI endpoint uses OpenAI Chat Completions when configured and otherwise retur
 
 ## Deployment
 
-Build both workspaces with `npm run build`; the server output is `server/dist` and Vite output is `client/dist`. For production, configure a single HTTPS origin, a strong session secret, a restricted MongoDB credential, `CLIENT_URL`, and required host variables. No production deployment or external-service credentials are included in this repository.
+Vercel uses `client/` as the project root, `npm run build` as the build command, and `dist` as the output directory. Its SPA rewrite sends nested application paths to `index.html`. Render uses the repository root, `npm ci --include=dev && npm run build -w server` as the build command, `npm run start -w server` as the start command, and `/api/health` as the health check. Render supplies `PORT`.
+
+The Vercel API-first external route keeps browser requests on one origin; set Vercel `RENDER_API_URL` to the actual Render API origin and Render `CLIENT_URL` to the exact Vercel origin. `VITE_API_URL` stays unset for this setup. Store backend secrets only in Render's environment settings. The route is configured locally but has not been preview-tested or deployed. See [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md).

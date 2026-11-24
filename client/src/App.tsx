@@ -5,28 +5,55 @@ import {
   BriefcaseBusiness, ClipboardList, ShieldCheck, LogOut, Menu, X,
   ArrowUpRight, Sparkles, Search, Send, CheckCircle2, Clock3, Users
 } from "lucide-react";
-import { api, User, Organisation, Resource, Opportunity } from "./api";
+import { api, getApiErrorMessage, User, Organisation, Resource, Opportunity } from "./api";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [authError, setAuthError] = useState("");
   const navigate = useNavigate();
 
   async function refreshUser() {
     try {
       const { data } = await api.get("/auth/me");
       setUser(data.user);
-    } catch { setUser(null); }
+      setAuthError("");
+    } catch (error) {
+      setUser(null);
+      const status = (error as { response?: { status?: number } }).response?.status;
+      setAuthError(status === 401 ? "" : getApiErrorMessage(error, "Could not verify your session."));
+    }
     finally { setLoading(false); }
   }
 
   useEffect(() => { void refreshUser(); }, []);
 
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser(null);
+      setAuthError("Your session expired. Please sign in again.");
+      navigate("/login");
+    };
+    window.addEventListener("youthcare:session-expired", handleSessionExpired);
+    return () => window.removeEventListener("youthcare:session-expired", handleSessionExpired);
+  }, [navigate]);
+
   async function logout() {
-    await api.post("/auth/logout").catch(() => undefined);
-    setUser(null);
-    navigate("/");
+    try {
+      await api.post("/auth/logout");
+      setUser(null);
+      setAuthError("");
+      navigate("/");
+    } catch (error) {
+      const status = (error as { response?: { status?: number } }).response?.status;
+      if (status === 401) {
+        setUser(null);
+        navigate("/login");
+      } else {
+        setAuthError(getApiErrorMessage(error, "Could not sign out. Please try again."));
+      }
+    }
   }
 
   if (loading) return <div className="loading-screen">Loading YouthCare…</div>;
@@ -52,6 +79,7 @@ function App() {
         </nav>
       </header>
       <main>
+        {authError && <div role="alert" className="error-box">{authError}</div>}
         <Routes>
           <Route path="/" element={<Landing user={user}/>}/>
           <Route path="/login" element={user ? <Navigate to="/dashboard"/> : <AuthPage mode="login" onAuth={refreshUser}/>}/>
@@ -121,7 +149,7 @@ function AuthPage({ mode, onAuth }: { mode: "login" | "register"; onAuth: () => 
     try {
       await api.post(`/auth/${mode}`, mode === "register" ? { name, email, password } : { email, password });
       await onAuth(); navigate("/dashboard");
-    } catch (err: any) { setError(err.response?.data?.error || "Something went wrong. Please try again."); }
+    } catch (err) { setError(getApiErrorMessage(err, "Something went wrong. Please try again.")); }
     finally { setBusy(false); }
   }
   return <section className="auth-wrap"><div className="auth-aside"><span className="eyebrow">A PLACE TO BEGIN</span><h2>Every next step starts somewhere.</h2><p>YouthCare brings guidance, information and connections together in one supportive space.</p><div className="auth-quote">“You do not need to have everything figured out to take your next step.”</div></div><form className="auth-card" onSubmit={submit}><div className="feature-icon"><HeartHandshake/></div><h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1><p>{mode === "login" ? "Sign in to continue your YouthCare journey." : "Join YouthCare and explore support at your own pace."}</p>
@@ -153,30 +181,28 @@ function QuickLink({ to, icon, title, desc }: { to: string; icon: React.ReactNod
 }
 
 function Organisations({ user }: { user: User | null }) {
-  const [items,setItems] = useState<Organisation[]>([]); const [query,setQuery] = useState(""); const [loading,setLoading] = useState(true);
-  useEffect(()=>{ api.get("/organisations").then(r=>setItems(r.data.organisations)).catch(()=>setItems([])).finally(()=>setLoading(false)); },[]);
+  const [items,setItems] = useState<Organisation[]>([]); const [query,setQuery] = useState(""); const [loading,setLoading] = useState(true); const [loadError,setLoadError] = useState("");
+  useEffect(()=>{ api.get("/organisations").then(r=>setItems(r.data.organisations)).catch(err=>{setItems([]);setLoadError(getApiErrorMessage(err,"Could not load organisations."));}).finally(()=>setLoading(false)); },[]);
   const filtered = items.filter(o => `${o.name} ${o.description} ${o.location} ${o.services.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
   return <div className="page-container"><PageHeader eyebrow="FIND SUPPORT" title="You don't have to search alone." text="Explore organisations that have completed YouthCare's verification process."/>
     <div className="search-bar"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search services, locations or organisations"/></div>
-    {loading ? <p>Loading organisations…</p> : filtered.length ? <div className="listing-grid">{filtered.map(o=><article className="listing-card" key={o._id}><div className="listing-top"><span className="tag">{o.location}</span><span className="verified"><ShieldCheck size={14}/> Verified</span></div><h3>{o.name}</h3><p>{o.description}</p><div className="chips">{o.services.map(s=><span key={s}>{s}</span>)}</div><small>{o.eligibility}</small>{user && <NavLink className="text-link" to="/referrals">Request a referral <ArrowUpRight size={15}/></NavLink>}</article>)}</div> : <div className="empty-state"><Building2/><h3>No verified organisations listed yet</h3><p>Listings appear here after direct verification. Demo entries are intentionally not presented as real providers.</p></div>}
+    {loading ? <p>Loading organisations…</p> : loadError ? <div role="alert" className="error-box">{loadError}</div> : filtered.length ? <div className="listing-grid">{filtered.map(o=><article className="listing-card" key={o._id}><div className="listing-top"><span className="tag">{o.location}</span><span className="verified"><ShieldCheck size={14}/> Verified</span></div><h3>{o.name}</h3><p>{o.description}</p><div className="chips">{o.services.map(s=><span key={s}>{s}</span>)}</div><small>{o.eligibility}</small>{user && <NavLink className="text-link" to="/referrals">Request a referral <ArrowUpRight size={15}/></NavLink>}</article>)}</div> : <div className="empty-state"><Building2/><h3>No verified organisations listed yet</h3><p>Listings appear here after direct verification. Demo entries are intentionally not presented as real providers.</p></div>}
   </div>;
 }
 
 function Resources() {
-  const [items,setItems] = useState<Resource[]>([]);
-  useEffect(()=>{ api.get("/resources").then(r=>setItems(r.data.resources)).catch(()=>setItems([])); },[]);
+  const [items,setItems] = useState<Resource[]>([]); const [loadError,setLoadError] = useState(""); const [loading,setLoading] = useState(true);
+  useEffect(()=>{ api.get("/resources").then(r=>setItems(r.data.resources)).catch(err=>{setItems([]);setLoadError(getApiErrorMessage(err,"Could not load resources."));}).finally(()=>setLoading(false)); },[]);
   return <div className="page-container"><PageHeader eyebrow="LEARN AND GROW" title="Useful knowledge, one step at a time." text="Practical information to help you explore well-being, peer support and personal development."/>
-    <div className="resource-grid">{items.map(item=><article className="resource-card" key={item._id}><span className="tag">{item.category}</span><h3>{item.title}</h3><p>{item.summary}</p><details><summary>Read more</summary><p>{item.body}</p></details></article>)}</div>
-    {!items.length && <p className="empty-state">Resources are being prepared. Please check back soon.</p>}
+    {loading ? <p>Loading resources…</p> : loadError ? <div role="alert" className="error-box">{loadError}</div> : <><div className="resource-grid">{items.map(item=><article className="resource-card" key={item._id}><span className="tag">{item.category}</span><h3>{item.title}</h3><p>{item.summary}</p><details><summary>Read more</summary><p>{item.body}</p></details></article>)}</div>{!items.length && <p className="empty-state">Resources are being prepared. Please check back soon.</p>}</>}
   </div>;
 }
 
 function Opportunities() {
-  const [items,setItems] = useState<Opportunity[]>([]);
-  useEffect(()=>{ api.get("/opportunities").then(r=>setItems(r.data.opportunities)).catch(()=>setItems([])); },[]);
+  const [items,setItems] = useState<Opportunity[]>([]); const [loadError,setLoadError] = useState(""); const [loading,setLoading] = useState(true);
+  useEffect(()=>{ api.get("/opportunities").then(r=>setItems(r.data.opportunities)).catch(err=>{setItems([]);setLoadError(getApiErrorMessage(err,"Could not load opportunities."));}).finally(()=>setLoading(false)); },[]);
   return <div className="page-container"><PageHeader eyebrow="OPPORTUNITIES" title="Explore what could come next." text="Discover pathways for learning, skills development and employment."/>
-    <div className="listing-grid">{items.map(item=><article className="listing-card" key={item._id}><span className="tag">{item.category}</span><h3>{item.title}</h3><p>{item.description}</p><small>{item.provider} · {item.location}</small>{item.applicationUrl && <a className="text-link" href={item.applicationUrl} target="_blank" rel="noreferrer">Explore opportunity <ArrowUpRight size={15}/></a>}</article>)}</div>
-    {!items.length && <p className="empty-state">No opportunities are currently listed.</p>}
+    {loading ? <p>Loading opportunities…</p> : loadError ? <div role="alert" className="error-box">{loadError}</div> : <><div className="listing-grid">{items.map(item=><article className="listing-card" key={item._id}><span className="tag">{item.category}</span><h3>{item.title}</h3><p>{item.description}</p><small>{item.provider} · {item.location}</small>{item.applicationUrl && <a className="text-link" href={item.applicationUrl} target="_blank" rel="noreferrer">Explore opportunity <ArrowUpRight size={15}/></a>}</article>)}</div>{!items.length && <p className="empty-state">No opportunities are currently listed.</p>}</>}
   </div>;
 }
 
@@ -187,7 +213,7 @@ function Companion() {
     e.preventDefault(); if(!value.trim() || busy) return;
     const message=value.trim(); setValue(""); setMessages(m=>[...m,{role:"user",text:message}]); setBusy(true); setError("");
     try { const {data}=await api.post("/ai/chat",{message}); setMessages(m=>[...m,{role:"assistant",text:data.reply}]); }
-    catch(err:any) { setError(err.response?.data?.error || "The companion is unavailable right now."); }
+    catch(err) { setError(getApiErrorMessage(err, "The companion is unavailable right now.")); }
     finally { setBusy(false); }
   }
   return <div className="page-container companion-page"><PageHeader eyebrow="AI SUPPORT COMPANION" title="A space to put things into words." text="Share what's on your mind and explore possible next steps without judgement."/>
@@ -202,22 +228,22 @@ function Companion() {
 
 function Referrals() {
   const [orgs,setOrgs]=useState<Organisation[]>([]); const [referrals,setReferrals]=useState<any[]>([]);
-  const [organisationId,setOrganisationId]=useState(""); const [reason,setReason]=useState(""); const [consent,setConsent]=useState(false); const [message,setMessage]=useState("");
-  async function load(){ const [o,r]=await Promise.all([api.get("/organisations"),api.get("/referrals/mine")]);setOrgs(o.data.organisations);setReferrals(r.data.referrals); }
-  useEffect(()=>{void load().catch(()=>undefined)},[]);
-  async function submit(e:FormEvent){e.preventDefault();setMessage("");try{await api.post("/referrals",{organisationId,reason,consentToShare:consent});setReason("");setConsent(false);setMessage("Your referral request has been recorded.");await load();}catch(err:any){setMessage(err.response?.data?.error||"Could not submit referral.");}}
+  const [organisationId,setOrganisationId]=useState(""); const [reason,setReason]=useState(""); const [consent,setConsent]=useState(false); const [message,setMessage]=useState(""); const [loadError,setLoadError]=useState("");
+  async function load(){setLoadError("");try{const [o,r]=await Promise.all([api.get("/organisations"),api.get("/referrals/mine")]);setOrgs(o.data.organisations);setReferrals(r.data.referrals);}catch(error){setLoadError(getApiErrorMessage(error,"Could not load referral information."));}}
+  useEffect(()=>{void load()},[]);
+  async function submit(e:FormEvent){e.preventDefault();setMessage("");try{await api.post("/referrals",{organisationId,reason,consentToShare:consent});setReason("");setConsent(false);setMessage("Your referral request has been recorded.");await load();}catch(err){setMessage(getApiErrorMessage(err,"Could not submit referral."));}}
   return <div className="page-container"><PageHeader eyebrow="YOUR REFERRALS" title="Choose a next step with consent." text="A referral request shares only the details you enter with the selected verified organisation. A request is not a confirmed appointment."/>
-    <form className="form-panel" onSubmit={submit}><h3>Request a referral</h3><label>Verified organisation<select required value={organisationId} onChange={e=>setOrganisationId(e.target.value)}><option value="">Choose an organisation</option>{orgs.map(o=><option key={o._id} value={o._id}>{o.name}</option>)}</select></label><label>What support are you looking for?<textarea required minLength={10} maxLength={1200} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Share only what is necessary for this request."/></label><label className="consent"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> I consent to sharing the information above with this organisation for the purpose of this referral request.</label><button className="button" disabled={!consent || !organisationId}>Submit referral request <ArrowUpRight size={16}/></button>{message&&<p className="form-message">{message}</p>}</form>
+    {loadError && <div role="alert" className="error-box">{loadError}</div>}<form className="form-panel" onSubmit={submit}><h3>Request a referral</h3><label>Verified organisation<select required value={organisationId} onChange={e=>setOrganisationId(e.target.value)}><option value="">Choose an organisation</option>{orgs.map(o=><option key={o._id} value={o._id}>{o.name}</option>)}</select></label><label>What support are you looking for?<textarea required minLength={10} maxLength={1200} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Share only what is necessary for this request."/></label><label className="consent"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> I consent to sharing the information above with this organisation for the purpose of this referral request.</label><button className="button" disabled={!consent || !organisationId}>Submit referral request <ArrowUpRight size={16}/></button>{message&&<p className="form-message">{message}</p>}</form>
     <div className="section-subhead"><h2>Your requests</h2></div><div className="referral-list">{referrals.map(r=><div className="referral-row" key={r._id}><div><strong>{r.organisation?.name || "Organisation"}</strong><small>{new Date(r.createdAt).toLocaleDateString()}</small></div><span className="tag">{r.status}</span></div>)}{!referrals.length&&<p>No referral requests yet.</p>}</div>
   </div>;
 }
 
 function Admin() {
-  const [overview,setOverview]=useState<any>(null); const [name,setName]=useState(""); const [description,setDescription]=useState(""); const [location,setLocation]=useState("Zimbabwe"); const [status,setStatus]=useState("pending"); const [notice,setNotice]=useState("");
-  useEffect(()=>{api.get("/admin/overview").then(r=>setOverview(r.data.counts)).catch(()=>undefined)},[]);
-  async function create(e:FormEvent){e.preventDefault();try{await api.post("/admin/organisations",{name,description,location,verificationStatus:status,services:[],contactEmail:"",website:""});setName("");setDescription("");setNotice("Organisation listing created.");const r=await api.get("/admin/overview");setOverview(r.data.counts);}catch(err:any){setNotice(err.response?.data?.error||"Could not create listing.");}}
+  const [overview,setOverview]=useState<any>(null); const [name,setName]=useState(""); const [description,setDescription]=useState(""); const [location,setLocation]=useState("Zimbabwe"); const [status,setStatus]=useState("pending"); const [notice,setNotice]=useState(""); const [loadError,setLoadError]=useState("");
+  useEffect(()=>{api.get("/admin/overview").then(r=>setOverview(r.data.counts)).catch(err=>setLoadError(getApiErrorMessage(err,"Could not load the admin overview.")))},[]);
+  async function create(e:FormEvent){e.preventDefault();try{await api.post("/admin/organisations",{name,description,location,verificationStatus:status,services:[],contactEmail:"",website:""});setName("");setDescription("");setNotice("Organisation listing created.");const r=await api.get("/admin/overview");setOverview(r.data.counts);}catch(err){setNotice(getApiErrorMessage(err,"Could not create listing."));}}
   return <div className="page-container"><PageHeader eyebrow="ADMINISTRATION" title="Platform overview." text="Manage platform content and maintain clear verification standards."/>
-    <div className="stats-grid">{Object.entries(overview||{}).map(([k,v])=><div className="stat-card" key={k}><span>{k}</span><strong>{String(v)}</strong></div>)}</div>
+    {loadError && <div role="alert" className="error-box">{loadError}</div>}<div className="stats-grid">{Object.entries(overview||{}).map(([k,v])=><div className="stat-card" key={k}><span>{k}</span><strong>{String(v)}</strong></div>)}</div>
     <form className="form-panel admin-form" onSubmit={create}><h3>Add an organisation listing</h3><p>New listings should remain pending until direct verification is completed.</p><label>Organisation name<input required value={name} onChange={e=>setName(e.target.value)}/></label><label>Description<textarea required minLength={10} value={description} onChange={e=>setDescription(e.target.value)}/></label><label>Location<input value={location} onChange={e=>setLocation(e.target.value)}/></label><label>Initial status<select value={status} onChange={e=>setStatus(e.target.value)}><option value="pending">Pending verification</option><option value="demo">Demonstration only</option></select></label><button className="button">Create listing</button>{notice&&<p>{notice}</p>}</form>
     <div className="notice"><ShieldCheck/><div><strong>Verification reminder</strong><p>Only mark an organisation as verified after confirming its services, eligibility, availability, referral process and safeguarding arrangements directly.</p></div></div>
   </div>;

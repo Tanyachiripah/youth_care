@@ -4,24 +4,25 @@
 
 - Passwords hashed with bcrypt (12 rounds).
 - Server-side sessions stored in MongoDB.
-- HTTP-only session cookie.
-- Secure cookie flag in production.
-- SameSite=Lax cookie.
+- HTTP-only, host-only session cookie; Secure in production and SameSite=Lax.
 - Helmet security headers.
 - JSON body size limit.
 - Zod validation for sensitive inputs.
-- Rate limiting on AI chat.
+- Session-bound CSRF tokens and exact trusted-Origin checks on state-changing API requests.
+- Shared MongoDB-backed rate limits on registration, login, and AI chat; client IPs are HMAC-hashed before storage.
+- Centralized structured error responses; server logs exclude request bodies, query strings, cookies, session IDs, and error messages.
 - Server-side role checks for admin routes.
 - Referral ownership enforced by query.
 - AI key remains on server.
+- Session rotation after successful login and registration; session destruction on logout.
 
 ## Required before production
 
-- CSRF protection and origin validation strategy.
+- Configure HTTPS custom domains under the same registrable domain for the Vercel frontend and Render API (for example `app.example.org` and `api.example.org`). The default `vercel.app`/`onrender.com` domains are cross-site and browser cookie behavior is not reliable.
+- Verify browser authentication, session persistence, CSRF rejection/acceptance, expiration, and logout on supported browsers after deployment. These checks are not established by unit tests alone.
 - Account recovery and email verification.
-- Login and registration rate limiting.
-- Strong session secret and secret rotation.
-- HTTPS-only deployment.
+- Strong unique production session secret and a rotation procedure.
+- HTTPS-only deployment and exact production CORS origin configuration.
 - Security review and dependency audit.
 - Database least-privilege credentials, backups and restore test.
 - Privacy notice, consent lifecycle, retention and deletion workflows.

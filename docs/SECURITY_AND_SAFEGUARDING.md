@@ -5,8 +5,10 @@ YouthCare handles account credentials and may receive sensitive referral informa
 ## Implemented controls
 
 - bcryptjs password hashing; registration assigns the `user` role.
-- MongoDB-backed server-side sessions; HTTP-only, SameSite=Lax cookies, and `secure` cookies in production.
-- Helmet headers, a JSON request-size limit, Zod request validation, and rate limiting on the AI endpoint.
+- MongoDB-backed server-side sessions; host-only, HTTP-only, SameSite=Lax cookies, and `secure` cookies in production.
+- Helmet headers, a JSON request-size limit, Zod request validation, session-bound CSRF tokens, and exact-Origin checks for state-changing requests.
+- Shared MongoDB-backed limits on registration, login, and AI requests; HMAC-hashed client keys.
+- Centralized API error responses and structured logs that omit bodies, query strings, cookies, session IDs, and error messages.
 - Server-side `requireAuth` and `requireAdmin` checks.
 - Referral endpoints require explicit consent, target verified organisations, and restrict history to the signed-in user.
 - AI transcripts are not persisted by the API; provider credentials are server-side.
@@ -14,8 +16,9 @@ YouthCare handles account credentials and may receive sensitive referral informa
 
 ## Required before real users
 
-- Add and test CSRF/origin protection appropriate to the deployment.
-- Rate-limit and monitor login and registration; add account recovery and email verification.
+- Use HTTPS custom domains under the same registrable domain for Vercel and Render. Their default service domains are cross-site and browser cookie behavior is not reliable.
+- Test login, registration, session persistence, CSRF, expiration, and logout in supported browsers after deployment; unit tests do not establish browser compatibility.
+- Add account recovery and email verification; monitor authentication abuse.
 - Define session rotation, revocation, secure deployment, secret rotation, backup and restore, incident response, and least-privilege database access.
 - Establish retention, deletion, user access, and consent withdrawal procedures for referral data.
 - Review admin provisioning and audit-log coverage; the current admin UI and management workflows are incomplete.

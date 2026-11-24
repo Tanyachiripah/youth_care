@@ -26,8 +26,8 @@ Before real deployment:
 - Obtain professional review of safeguarding and crisis protocols.
 - Complete a privacy/data-protection review for Zimbabwe and all intended operating jurisdictions.
 - Establish retention, deletion, access and incident-response policies.
-- Configure HTTPS, secure cookies, backups, monitoring and secrets management.
-- Add CSRF protection and a production-grade email/password recovery flow.
+- Configure HTTPS custom domains, secure cookies, backups, monitoring and secrets management.
+- Implement account recovery and email verification; test browser authentication, CSRF, expiration and logout after deployment.
 - Have security and accessibility testing performed.
 - Configure a real, staffed human escalation process before claiming one exists.
 
@@ -78,7 +78,7 @@ Set in `server/.env` before `npm run seed`:
 
 ```env
 SEED_ADMIN_EMAIL=admin@example.test
-SEED_ADMIN_PASSWORD=ChangeThis-Demo-Password-2026!
+SEED_ADMIN_PASSWORD=<unique-local-demo-password>
 ```
 
 The seed script will hash the password. Remove these variables after seeding.
@@ -91,16 +91,19 @@ npm run build
 
 The API build outputs to `server/dist`. The frontend build outputs to `client/dist`.
 
-## Production serving
+## Deployment
 
-The Express server serves the built frontend when `NODE_ENV=production` and `client/dist` exists. Build the app before starting the server:
+Build and test from the repository root:
 
 ```powershell
+npm ci --include=dev
+npm test
 npm run build
-npm start
 ```
 
-Set `CLIENT_URL` to the deployed origin. Configure the host to provide `PORT`.
+Deploy `client` to Vercel with root `client`, build command `npm run build`, and output `dist`. Deploy the API to Render from the repository root with build command `npm ci --include=dev && npm run build -w server`, start command `npm run start -w server`, and health check `/api/health`.
+
+The Vercel configuration proxies browser `/api/*` requests to Render using `RENDER_API_URL`, keeping session cookies same-origin without a purchased domain. Set Render `CLIENT_URL` to the exact Vercel origin and leave `VITE_API_URL` unset when using this proxy. Configure secrets only in hosting dashboards, never in Vite variables. Verify cookie forwarding and API routing in a preview before production. See [Deployment Checklist](docs/DEPLOYMENT_CHECKLIST.md).
 
 ## API overview
 
@@ -142,6 +145,14 @@ Product, architecture, safeguarding, setup, and demo documentation:
 - [AI behaviour and safety](docs/AI_BEHAVIOUR_AND_SAFETY.md)
 - [Implementation roadmap](docs/IMPLEMENTATION_ROADMAP.md)
 - [Setup and installation](docs/SETUP_AND_INSTALLATION.md)
+- [Deployment checklist](docs/DEPLOYMENT_CHECKLIST.md)
+- [Deployment status](docs/DEPLOYMENT_STATUS.md)
+- [Deployment architecture](docs/DEPLOYMENT_ARCHITECTURE.md)
+- [Deployment changelog](docs/DEPLOYMENT_CHANGELOG.md)
+- [Production environment](docs/PRODUCTION_ENVIRONMENT.md)
+- [Production smoke test](docs/PRODUCTION_SMOKE_TEST.md)
+- [Free-tier limitations](docs/FREE_TIER_LIMITATIONS.md)
+- [Free-tier blockers](docs/BLOCKED_BY_COST.md)
 - [Demo guide](docs/DEMO_GUIDE.md)
 - [Feature status](docs/FEATURE_STATUS.md)
 

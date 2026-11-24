@@ -69,7 +69,7 @@ if (process.env.SEED_ADMIN_EMAIL && process.env.SEED_ADMIN_PASSWORD) {
   if (!(await User.exists({ email }))) {
     const passwordHash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD, 12);
     await User.create({ name: "YouthCare Administrator", email, passwordHash, role: "admin" });
-    console.log(`Seed admin created: ${email}`);
+    console.log("Seed admin created.");
   } else {
     console.log("Seed admin already exists; no changes made.");
   }
