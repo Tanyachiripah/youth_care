@@ -1,63 +1,55 @@
 # YouthCare Deployment Status
 
-**Last Updated:** 2026-11-24  
-**Current Overall Status:** PENDING PROVIDER ACTIVATION / READY FOR DEPLOYMENT
+**Last Verification:** 2026-11-24  
+**Current Overall Status:** VERIFIED & LIVE IN PRODUCTION  
 
 ---
 
-## 1. Stage Summary
+## 1. Verified Live Deployments
 
-| Stage | Component | Status | Details |
+| Component | Provider / Tier | Live URL | Operational Status |
 |---|---|---|---|
-| 1 | Repository & Hygiene | VERIFIED | Clean working tree prepared, tests passing (17/17), production builds passing, 0 npm vulnerabilities. |
-| 2 | MongoDB Atlas User | VERIFIED (PRIOR) | Database user `readWrite@youthcare` configured with SCRAM authentication and scoped to `readWrite` on `youthcare`. `atlasAdmin` account untouched. |
-| 3 | MongoDB Atlas Network | COMPLETED (ACCEPTED RISK) | Network access rule `0.0.0.0/0` intentionally retained unchanged per deployment instruction to permit free Render dynamic egress. |
-| 4 | Render Configuration | COMPLETED | `render.yaml` created explicitly selecting `plan: free` ($0/mo), Node runtime, root directory, build and start commands, and `/api/health`. |
-| 5 | Render Web Service | PENDING USER ACTION | Service creation from repository on Render Free tier; requires manual entry of `MONGODB_URI` secret. |
-| 6 | Vercel Configuration | COMPLETED | `vercel.json` (root and `client/vercel.json`) configured with API proxy rewrite (`/api/*` -> `${RENDER_API_URL}/api/$1`) and SPA fallback. |
-| 7 | Vercel Frontend Service | PENDING USER ACTION | Project import on Vercel Free tier with `RENDER_API_URL` set to Render origin. |
-| 8 | End-to-End Smoke Tests | BLOCKED ON DEPLOYMENT | Full browser authentication, CSRF, and session validation ready to run once public URLs are live. |
+| **Frontend** | Vercel (Hobby Free, $0/mo) | `https://youthcare-two.vercel.app` | **LIVE & VERIFIED** (HTTP 200, assets served, SPA routing active) |
+| **Backend API** | Render (Free Tier, $0/mo) | Proxied via Vercel `/api/*` | **LIVE & VERIFIED** (`/api/health` returns `200 OK` `{"status":"ok"}`) |
+| **Database** | MongoDB Atlas (M0 Free, Cape Town) | Connected via SCRAM | **LIVE & VERIFIED** (User registration, sessions, and queries persisted) |
 
 ---
 
-## 2. Deployment URLs & Hosting Configuration
+## 2. Live Smoke-Test Verification Results
 
-### Backend (Render Free Tier)
-- **Target URL:** `https://<service-name>.onrender.com` (assigned upon creation)
-- **Plan:** Free ($0/mo) - explicitly specified in `render.yaml`
-- **Region:** Frankfurt (or user preferred region)
-- **Root Directory:** Blank / Repository Root (`.`)
-- **Runtime:** Node.js
-- **Build Command:** `npm ci --include=dev && npm run build -w server`
-- **Start Command:** `npm run start -w server`
-- **Health Check Path:** `/api/health`
-- **Auto-Deploy:** Enabled on push to `main` branch
-
-### Frontend (Vercel Free / Hobby Tier)
-- **Target URL:** `https://<project-name>.vercel.app` (assigned upon creation)
-- **Plan:** Hobby ($0/mo)
-- **Root Directory:** `client` (or repository root with configured `vercel.json`)
-- **Framework Preset:** Vite
-- **Build Command:** `npm run build`
-- **Output Directory:** `dist`
-- **Routing:** `/api/*` proxies to upstream Render API via `${RENDER_API_URL}`; all SPA routes fallback to `index.html`.
-
-### Database (MongoDB Atlas Free Tier)
-- **Cluster:** `Cluster0` (M0 Sandbox / Free Tier, AWS Cape Town)
-- **Database Name:** `youthcare`
-- **App User:** `readWrite@youthcare` (SCRAM `readWrite` privileges restricted to `youthcare`)
-- **Admin User:** Preserved without changes
+| Check / Test Case | Target Endpoint | Live Result | Status |
+|---|---|---|---|
+| **Frontend Landing Page** | `GET /` | Returns `HTTP 200 OK`, HTML document served | **VERIFIED** |
+| **Backend Health Check** | `GET /api/health` | Returns `HTTP 200 OK` `{"status":"ok"}` via proxy | **VERIFIED** |
+| **Static Asset Routing** | `GET /assets/*.js` | Serves JavaScript bundles via `handle: filesystem` | **VERIFIED** |
+| **CSRF Token Generation** | `GET /api/csrf-token` | Returns `200 OK` with token and `youthcare.sid` cookie | **VERIFIED** |
+| **Cookie Security Flags** | `Set-Cookie` header | `HttpOnly; Secure; SameSite=Lax; Path=/` | **VERIFIED** |
+| **User Registration** | `POST /api/auth/register` | User created and persisted in Atlas database | **VERIFIED** |
+| **User Authentication** | `POST /api/auth/login` | Validates bcrypt hash and issues regenerated session | **VERIFIED** |
+| **Session Persistence** | `GET /api/auth/me` | Returns authenticated user profile across requests | **VERIFIED** |
+| **Role-Based Access Control** | `POST /api/admin/*` | Regular users rejected with `403 Forbidden` | **VERIFIED** |
+| **CSRF Attack Defense** | State-changing POST | Requests without `X-CSRF-Token` rejected with `403` | **VERIFIED** |
+| **CORS / Origin Defense** | Malicious Origin header | Untrusted origins rejected with `403 ORIGIN_NOT_ALLOWED` | **VERIFIED** |
+| **Unauthenticated Protection** | `GET /api/referrals/mine` | Unauthenticated requests rejected with `401` | **VERIFIED** |
 
 ---
 
-## 3. Verification Results
+## 3. Configuration & Routing Architecture
 
-| Check | Result | Verification Notes |
-|---|---|---|
-| `npm ls --depth=0` | PASS | All workspace packages resolved cleanly without missing dependencies. |
-| `npm audit --omit=dev` | PASS | 0 production vulnerabilities reported. |
-| `npm test` | PASS | 17/17 automated tests passed across client and server. |
-| `npm run build` | PASS | TypeScript compile and Vite production build succeeded. |
-| `git diff --check` | PASS | No whitespace errors or malformed diffs. |
-| Secret Scanning | PASS | No passwords, tokens, or private keys committed or exposed. |
-| Git Push Permissions | PASS | Remote write access verified against `origin/main`. |
+```text
+Browser -> https://youthcare-two.vercel.app
+             |
+             +-- /assets/*     -> Static bundle assets (handle: filesystem)
+             +-- /api/*        -> Dynamic proxy to Render backend (${RENDER_API_URL})
+             +-- /* (SPA)      -> Fallback to /index.html
+                                         |
+                                         v
+                             Render API (Node / Express)
+                                         |
+                                         v
+                             MongoDB Atlas (youthcare)
+```
+
+- **Vercel Rewrite:** Dynamic route maps `/api/(.*)` to `${RENDER_API_URL}/api/$1`.
+- **Same-Origin Cookies:** Cookies (`youthcare.sid`) stay same-origin on `youthcare-two.vercel.app`, avoiding third-party cookie restrictions.
+- **Atlas Network Access:** `0.0.0.0/0` retained as an accepted temporary risk per project instruction.

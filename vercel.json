@@ -10,6 +10,9 @@
       "env": ["RENDER_API_URL"]
     },
     {
+      "handle": "filesystem"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
